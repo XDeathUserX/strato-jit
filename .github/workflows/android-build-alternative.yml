@@ -60,7 +60,7 @@ jobs:
         chmod +x ./gradlew
         ./gradlew "assemble${{ github.event.inputs.flavor || 'dev' }}Release"
         # bash gradlew build
-        mv $(find app/build/outputs/apk -type f | grep -E "\.apk$") ${{ github.workspace }}/strato-jit-${{ github.event.inputs.flavor || 'prod' }}-${{ steps.version.outputs.date }}-${{ steps.version.outputs.version }}.apk
+        mv $(find app/build/outputs/apk -type f | grep -E "\.apk$") ${{ github.workspace }}/strato-jit-${{ github.event.inputs.flavor || 'mainline' }}-${{ steps.version.outputs.date }}-${{ steps.version.outputs.version }}.apk
 
     - name: Release Strato (strato-jit)
       uses: softprops/action-gh-release@v2
