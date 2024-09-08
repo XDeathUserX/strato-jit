@@ -1,0 +1,77 @@
+name: strato-alternative-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'select branch to build(default: main)'
+        required: false
+        default: 'jit'
+      flavor:
+        description: 'select flavor to build(default: dev)'
+        required: false
+        default: 'dev'
+  schedule:
+    - cron: "0 0 */5 * *"
+
+jobs:
+  strato_jit_build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+
+    - name: Download Cosmic source code
+      run: |
+        cd ${{ github.workspace }}
+        git clone --branch ${{ github.event.inputs.branch || 'jit' }} https://github.com/XDeathUserX/strato-jit.git --recursive
+        cd strato-jit
+        
+
+    - id: version
+      name: Get version
+      run: |
+        echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        cd ${{ github.workspace }}/strato-jit
+        echo "hash=$(git log -1 --pretty=format:%H)" >> $GITHUB_OUTPUT
+        echo "short_hash=$(git describe --always --long)" >> $GITHUB_OUTPUT
+        echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+
+    - name: Set up cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-strato-jit-${{ steps.version.outputs.hash }}
+        restore-keys: |
+            ${{ runner.os }}-strato-jit-
+
+    - name: Prepare environment
+      run: |
+        sudo apt-get install -y ninja-build
+          ln -s /usr/bin/ninja .
+    - name: Build Android
+      run: |
+        cd ${{ github.workspace }}/strato-jit
+        chmod +x ./gradlew
+        ./gradlew "assemble${{ github.event.inputs.flavor || 'dev' }}Release"
+        # bash gradlew build
+        mv $(find app/build/outputs/apk -type f | grep -E "\.apk$") ${{ github.workspace }}/strato-jit-${{ github.event.inputs.flavor || 'prod' }}-${{ steps.version.outputs.date }}-${{ steps.version.outputs.version }}.apk
+
+    - name: Release Strato (strato-jit)
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Strato ${{ steps.version.outputs.date }}
+        tag_name: strato-jit
+        files: ${{ github.workspace }}/strato-jit-${{ github.event.inputs.flavor || 'dev' }}-${{ steps.version.outputs.date }}-${{ steps.version.outputs.version }}.apk
+
+    - name: Release Strato ${{ steps.version.outputs.date }}
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ${{ steps.version.outputs.date }}
+        tag_name: ${{ steps.version.outputs.date }}
+        files: ${{ github.workspace }}/strato-jit-${{ github.event.inputs.flavor || 'dev' }}-${{ steps.version.outputs.date }}-${{ steps.version.outputs.version }}.apk
